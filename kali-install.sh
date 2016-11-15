@@ -10,7 +10,7 @@ git checkout bleeding-edge
 
 
 # Unix packages
-sudo apt-get install python2.7 python2.7-dev pip sshpass sqlite3 lib32ncurses5-dev
+sudo apt-get install python2.7 python2.7-dev sshpass sqlite3 lib32ncurses5-dev
 
 # Python packages
 sudo pip install readline
