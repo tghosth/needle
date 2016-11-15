@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Install Git
-sudo apt-get install git
+sudo apt-get -y install git
 
 # clone the needle repository and choose the relevant branch 
 git clone https://github.com/tghosth/needle.git
@@ -10,7 +10,7 @@ git checkout bleeding-edge
 
 
 # Unix packages
-sudo apt-get install python2.7 python2.7-dev sshpass sqlite3 lib32ncurses5-dev
+sudo apt-get -y install python2.7 python2.7-dev sshpass sqlite3 lib32ncurses5-dev
 
 # Python packages
 sudo pip install readline
