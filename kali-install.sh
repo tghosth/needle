@@ -5,6 +5,7 @@ sudo apt-get install git
 
 # clone the needle repository and choose the relevant branch 
 git clone https://github.com/tghosth/needle.git
+cd needle
 git checkout bleeding-edge
 
 
