@@ -29,7 +29,7 @@ class Module(BaseModule):
         # IPA filename
         fname_ipa = '%s.ipa' % self.APP_METADATA['bundle_id']
         fname_remote = self.device.remote_op.build_temp_path_for_file(fname_ipa)
-        fname_local_ipa  = self.options['output']
+        fname_local_ipa = self.options['output']
 
         if self.options['decrypt']:
             # Decrypt the binary first
