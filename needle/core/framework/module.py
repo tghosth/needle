@@ -180,8 +180,6 @@ class BaseModule(Framework):
                     else:
                         fp.write('%s\n' % line)
             else:
-                print(content)
-                print(type(content))
                 fp.write('%s\n' % content.strip())
 
         if txt:
