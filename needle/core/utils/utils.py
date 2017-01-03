@@ -145,7 +145,7 @@ class Utils(object):
             raise Exception("Failed to parse plist file: {}".format(e))
 
     @staticmethod
-    def plist_read_from_file_old(self, path):
+    def plist_read_from_file_old(path):
 
         with open(path, 'rb') as fp:
             content = fp.read()
