@@ -235,7 +235,6 @@ class RemoteOperations(object):
 
         # Read the plist
         content = Utils.plist_read_from_file(plist_copy)
-
         return content
 
     def read_file(self, fname, grep_args=None):
