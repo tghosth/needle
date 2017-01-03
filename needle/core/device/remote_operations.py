@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 import os
 import time
 import threading
@@ -234,6 +233,7 @@ class RemoteOperations(object):
         if sanitize:
             sanitize_plist(plist_copy)
 
+        # Read the plist
         content = Utils.plist_read_from_file(plist_copy)
 
         return content
