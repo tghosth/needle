@@ -173,8 +173,10 @@ class BaseModule(Framework):
             elif Utils.is_plist(content):
                 Utils.plist_write_to_file(content, fp)
             elif content_type is list:
-                for line in content: fp.write('%s\n' % line.strip())
+                for line in content: print_file(line)
             else:
+                print(content)
+                print(type(content))
                 fp.write('%s\n' % content.strip())
 
         if txt:

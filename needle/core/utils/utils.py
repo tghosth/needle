@@ -152,6 +152,16 @@ class Utils(object):
                 if isinstance(v, biplist.Data):
                     inner_plist[k] = Utils.plist_read_from_string(v)
 
+        if isinstance(inner_plist, list):
+            inner_plist_out = []
+            for v in inner_plist:
+                if isinstance(v, biplist.Data):
+                    inner_plist_out.append(Utils.plist_read_from_string(v))
+                else:
+                    inner_plist_out.append(v)
+
+            inner_plist = inner_plist_out
+
         return inner_plist
 
     @staticmethod
