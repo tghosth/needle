@@ -112,7 +112,8 @@ class Utils(object):
             if isinstance(obj, biplist.Uid):
                 return repr(obj)
 
-            raise TypeError("Type not serializable")
+            print(object)
+            raise TypeError('Type "{}" not serializable'.format(type(object)))
 
 
         try:
@@ -144,6 +145,14 @@ class Utils(object):
             raise Exception("Failed to parse plist file: {}".format(e))
 
     @staticmethod
+    def plist_read_from_file_old(self, path):
+
+        with open(path, 'rb') as fp:
+            content = fp.read()
+
+        return Utils.plist_read_from_string_old(content)
+
+    @staticmethod
     def decode_nested_plist(inner_plist):
         """This method is designed to allow recursively decoding a plist file."""
 
@@ -168,6 +177,11 @@ class Utils(object):
     def plist_read_from_string(text):
         """Recursively read a plist from a file."""
         return Utils.plist_read_from_file(io.BytesIO(text))
+
+    @staticmethod
+    def plist_read_from_string_old(text):
+        """Read a plist from a file using the old method."""
+        return plistlib.readPlistFromString(text)
 
     @staticmethod
     def plist_write_to_file(text, fp):

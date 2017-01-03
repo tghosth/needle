@@ -209,32 +209,36 @@ class RemoteOperations(object):
         cmd = 'chmod +x %s' % fname
         self.command_blocking(cmd)
 
-    def parse_plist(self, plist, sanitize=False):
+    def parse_plist(self, plist, sanitize=False, old_function=True):
         """Given a plist file, copy it to temp folder, and run plutil on it."""
 
-        def sanitize_plist(pl):
-            self._device.printer.debug('Sanitizing content from: {}'.format(pl))
+        def sanitize_plist(local_plist):
+            self._device.printer.debug('Sanitizing content from: {}'.format(local_plist))
             # Reading original content
-            local_plist = self._device.local_op.build_temp_path_for_file('plist', None, path=Constants.FOLDER_TEMP)
-            self.download(pl, local_plist)
+            # local_plist = self._device.local_op.build_temp_path_for_file('plist', None, path=Constants.FOLDER_TEMP)
+            # self.download(pl, local_plist)
             with open(local_plist, 'rb') as fp:
                 text = fp.read()
             # Writing back sanitized content
             with open(local_plist, 'wb') as fp:
                 text_clean = Utils.regex_remove_control_chars(text)
                 fp.write(text_clean)
-            self.upload(local_plist, pl)
+            # self.upload(local_plist, pl)
 
         # Get a copy of the plist
-        plist_copy = self._device.local_op.build_temp_path_for_file('plist', None, path=Constants.FOLDER_TEMP)
-        self._device.printer.debug('Copying the plist to temp: {} -> {}'.format(plist, plist_copy))
-        self._device.pull(plist, plist_copy)
+        local_plist_copy = self._device.local_op.build_temp_path_for_file('plist', None, path=Constants.FOLDER_TEMP)
+        self._device.printer.debug('Copying the plist to temp: {} -> {}'.format(plist, local_plist_copy))
+        self._device.pull(plist, local_plist_copy)
 
         if sanitize:
-            sanitize_plist(plist_copy)
+            sanitize_plist(local_plist_copy)
 
         # Read the plist
-        content = Utils.plist_read_from_file(plist_copy)
+        if old_function:
+            content = Utils.plist_read_from_file_old(local_plist_copy)
+        else:
+            content = Utils.plist_read_from_file(local_plist_copy)
+
         return content
 
     def read_file(self, fname, grep_args=None):
