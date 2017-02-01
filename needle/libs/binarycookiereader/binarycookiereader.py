@@ -1,4 +1,4 @@
-from __future__ import unicode_literals
+
 #*******************************************************************************#
 # BinaryCookieReader: Written By Satishb3 (http://www.securitylearn.net)        #
 #                                                                               #
@@ -16,6 +16,7 @@ import sys
 from struct import unpack
 from StringIO import StringIO
 from time import strftime, gmtime
+from __future__ import unicode_literals
 
 if len(sys.argv)!=2:
     print "\nUsage: Python BinaryCookieReader.py [Full path to Cookies.binarycookies file] \n"

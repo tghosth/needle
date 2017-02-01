@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 # Script to manage additional trusted root certificate in the IOS simulator
 #
 # Allows to add/list/delete/export trusted root certificates to the IOS simulator
@@ -33,7 +32,7 @@ import ssl
 import hashlib
 import subprocess
 import string
-
+from __future__ import unicode_literals
 
 # ======================================================================================================================
 # A simple ASN1 decoder/encoder based on Python-ASN1

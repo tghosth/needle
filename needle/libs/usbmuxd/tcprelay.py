@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
@@ -23,6 +22,7 @@ import SocketServer
 import select
 import sys
 from optparse import OptionParser
+from __future__ import unicode_literals
 
 import usbmux
 
