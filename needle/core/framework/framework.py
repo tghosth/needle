@@ -3,6 +3,7 @@ import os
 import sys
 import cmd
 import codecs
+import readline
 import traceback
 
 from options import Options
@@ -139,6 +140,24 @@ class Framework(cmd.Cmd):
         options = sorted(self._get_show_names())
         return [x for x in options if x.startswith(text)]
 
+    def _history_save(self):
+        history_path = Constants.FILE_HISTORY
+        try:
+            if self._global_options['save_history']:
+                self.printer.debug("Saving command history to: {}".format(history_path))
+                readline.write_history_file(history_path)
+        except Exception as e:
+            self.printer.warning("Error while saving command history: {}".format(e))
+            self.printer.warning("Continuing anyway...")
+
+    def _history_load(self):
+        history_path = Constants.FILE_HISTORY
+        if os.path.exists(history_path):
+            self.printer.debug("Trying to load command history from: {}".format(history_path))
+            readline.read_history_file(history_path)
+        else:
+            self.printer.debug("Command history not found in: {}".format(history_path))
+
     # ==================================================================================================================
     # OUTPUT METHODS
     # ==================================================================================================================
@@ -253,11 +272,12 @@ class Framework(cmd.Cmd):
             print(pattern % ('Name'.ljust(key_len), 'Current Value'.ljust(val_len), 'Required', 'Description'))
             print(pattern % (self.ruler*key_len, (self.ruler*13).ljust(val_len), self.ruler*8, self.ruler*11))
             for key in sorted(options):
-                value = options[key] if options[key] != None else ''
-                reqd = 'no' if options.required[key] is False else 'yes'
-                desc = options.description[key]
-                print(pattern % (key.upper().ljust(key_len), Utils.to_unicode_str(value).ljust(val_len),
-                                 Utils.to_unicode_str(reqd).ljust(8), desc))
+                if not key == Constants.PASSWORD_CLEAR:
+                    value = options[key] if options[key] != None else ''
+                    reqd = 'no' if options.required[key] is False else 'yes'
+                    desc = options.description[key]
+                    print(pattern % (key.upper().ljust(key_len), Utils.to_unicode_str(value).ljust(val_len),
+                                     Utils.to_unicode_str(reqd).ljust(8), desc))
             print('')
         else:
             print('')
@@ -344,6 +364,8 @@ class Framework(cmd.Cmd):
             # if value type is bool or int, then we know the options is set
             if not type(self.options[option]) in [bool, int]:
                 if self.options.required[option] is True and not self.options[option]:
+                    if option == Constants.PASSWORD_CLEAR:
+                        option = 'password'.upper()
                     raise FrameworkException('Value required for the \'%s\' option.' % (option.upper()))
         return
 
@@ -355,6 +377,8 @@ class Framework(cmd.Cmd):
     # ==================================================================================================================
     def do_exit(self, params):
         """Stop background jobs, cleanup temp folders (local&remote), close connection, then exits the Framework."""
+        # Save history
+        self._history_save()
         # Stop background jobs
         for i in xrange(len(self._jobs)):
             self.do_kill(i)
@@ -402,8 +426,15 @@ class Framework(cmd.Cmd):
         name = options[0].lower()
         if name in self.options:
             value = ' '.join(options[1:])
+
+            if name == 'password':
+                self.options[Constants.PASSWORD_CLEAR] = value
+                value = Constants.PASSWORD_MASK
+
+            # Actual set
             self.options[name] = value
             print('%s => %s' % (name.upper(), value))
+
             # Check verbosity level
             if name == 'debug':
                 self.printer.set_debug(self.options['debug'])
@@ -573,7 +604,7 @@ class Framework(cmd.Cmd):
         IP = self._global_options['ip']
         PORT = self._global_options['port']
         USERNAME = self._global_options['username']
-        PASSWORD = self._global_options['password']
+        PASSWORD = self._global_options[Constants.PASSWORD_CLEAR]
         PUB_KEY_AUTH = self._global_options['pub_key_auth']
         return IP, PORT, USERNAME, PASSWORD, PUB_KEY_AUTH
 
@@ -607,7 +638,7 @@ class Framework(cmd.Cmd):
             if self._global_options['ip'] != self.device._ip or \
                self._global_options['port'] != self.device._port or \
                self._global_options['username'] != self.device._username or \
-               self._global_options['password'] != self.device._password or \
+               self._global_options[Constants.PASSWORD_CLEAR] != self.device._password or \
                self._global_options['pub_key_auth'] != self.device._pub_key_auth:
 
                 self.printer.verbose('Settings changed in global options. Establishing a new connection')
