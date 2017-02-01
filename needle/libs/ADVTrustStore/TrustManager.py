@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 # Script to manage additional trusted root certificate in the IOS simulator
 #
 # Allows to add/list/delete/export trusted root certificates to the IOS simulator

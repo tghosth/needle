@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 #*******************************************************************************#
 # BinaryCookieReader: Written By Satishb3 (http://www.securitylearn.net)        #
 #                                                                               #

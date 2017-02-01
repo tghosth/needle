@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from core.framework.module import BaseModule
 from core.utils.menu import choose_from_list_data_protection
 from core.utils.utils import Utils

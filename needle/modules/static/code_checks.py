@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from core.framework.module import StaticModule
 from core.utils.constants import Constants
 from core.utils.utils import Utils
