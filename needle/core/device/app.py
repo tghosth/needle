@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 import os
 from ..utils.constants import Constants
 from ..utils.utils import Utils
