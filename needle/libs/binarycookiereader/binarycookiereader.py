@@ -1,4 +1,3 @@
-
 #*******************************************************************************#
 # BinaryCookieReader: Written By Satishb3 (http://www.securitylearn.net)        #
 #                                                                               #
