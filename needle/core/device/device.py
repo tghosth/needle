@@ -119,13 +119,67 @@ class Device(object):
                     stdout.channel.close()
                     break
 
+        def readlines_noexception(file_in, sizehint=None):
+            '''
+            This function contains code taken from the paramiko source, here:
+            https://github.com/paramiko/paramiko/blob/a859d7f065e7a1b5b2c527f8dd6cdb30d51c20e8/paramiko/file.py#L324
+
+            It reads the output without allowing an encoding exception to completely break the process.
+
+            As noted in the exception, for more information on this issue see:
+            https://github.com/mwrlabs/needle/issues/118.'
+            '''
+
+            lines = []
+            byte_count = 0
+            error_text = ''
+            while True:
+                try:
+                    line = file_in.readline()
+
+                    if len(line) == 0:
+                        break
+
+                except UnicodeDecodeError as e:
+                    error_text = '{0}{1}'.format(error_text, unicode(e.object, errors='replace'))
+
+                lines.append(line)
+                byte_count += len(line)
+                if (sizehint is not None) and (byte_count >= sizehint):
+                    break
+
+            if len(error_text) ==0:
+                error_text=None
+
+            return lines, error_text
+
+
+        # Print out any encoding errors caused during reading filenames
+        def print_error(errorText):
+            self.printer.error(
+                'WARNING: One or more filenames contained a special character and could not be included in the output.')
+            self.printer.error(
+                'Affected files:')
+            self.printer.error(
+                errorText)
+            self.printer.error(
+                'For more information, see: https://github.com/mwrlabs/needle/issues/118.')
+
         # Paramiko Exec Command
         stdin, stdout, stderr = self.conn.exec_command(cmd)
         hotfix_67()
 
-        # Parse STDOUT/ERR
-        out = stdout.readlines()
-        err = stderr.readlines()
+        # Parse STDOUT/ERR printing any exceptions that occured during the process
+        out, error_occured = readlines_noexception(stdout)
+
+        if error_occured:
+            print_error(error_occured)
+
+        err, error_occured = readlines_noexception(stderr)
+
+        if error_occured:
+            print_error(error_occured)
+
         if internal:
             # For processing, don't display output
             if err:
