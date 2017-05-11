@@ -31,7 +31,7 @@ class Module(BaseModule):
         self.printer.info("Running strings over keyboard autocomplete databases...")
 
         # Run Strings
-        cmd = '{bin} {dirs_str} -type f \( -iname "dynamic-text.dat" -o' \
+        cmd = '{bin} {dirs_str} -type f \( -iname "*dynamic-text.dat" -o' \
               ' -iname "dynamic.dat" -o -iname "lexicon.dat" \) ' \
               '-exec {strings} {{}} \;'.format(bin=self.device.DEVICE_TOOLS['FIND'],
                                                dirs_str="/var/mobile/Library/Keyboard/",
@@ -42,3 +42,4 @@ class Module(BaseModule):
         if out:
             self.printer.notify("The following content has been found:")
             self.print_cmd_output(out, self.options['output'])
+            self.add_issue('Content of Keyboard Autocomplete', None, 'INVESTIGATE', self.options['output'])

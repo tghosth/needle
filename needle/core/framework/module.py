@@ -1,13 +1,12 @@
 from __future__ import print_function
 import os
-import time
 import json
-import plistlib
+import time
 import textwrap
-from pprint import pprint
 
 from ..framework.framework import Framework, FrameworkException
 from ..framework.options import Options
+from ..utils.constants import Constants
 from ..utils.printer import Colors
 from ..utils.utils import Utils
 
@@ -26,6 +25,7 @@ class BaseModule(Framework):
         if 'options' in self.meta:
             for option in self.meta['options']:
                 self.register_option(*option)
+        self.meta['path'] = os.path.join('modules', self._modulename) + '.py'
         self._reload = 0
 
     # ==================================================================================================================
@@ -60,7 +60,6 @@ class BaseModule(Framework):
             self.printer.info('Show source not available for this module.')
 
     def show_info(self):
-        self.meta['path'] = os.path.join('modules', self._modulename) + '.py'
         print('')
         # Meta info
         for item in ['name', 'path', 'author', 'version']:
@@ -137,7 +136,11 @@ class BaseModule(Framework):
         # Check if we have an established connection, otherwise abort the run
         if self.connection_check() is None: return None
         # Setup device
-        self.device.setup(self._global_options['setup_device'])
+        self.device.setup()
+        # Check if the module has been disabled for the current iOS version
+        disabled_for_version = Constants.MODULES_DISABLED.get(self.device._ios_version)
+        if disabled_for_version and self._modulename in disabled_for_version:
+            raise FrameworkException('This module is not currently supported by the iOS version of the device in use (iOS {})'.format(self.device._ios_version))
         # If not specified to bypass app check
         if not bypass_app:
             # Check target app, otherwise launch wizard
@@ -160,29 +163,36 @@ class BaseModule(Framework):
         """Pretty print output coming from command execution. Also save it to file if specified"""
         def print_screen(content):
             content_type = type(content)
-            if content_type is dict or content_type is plistlib._InternalDict: pprint(content, indent=4)
-            elif content_type is list: map(print_screen, content)
-            else: print('\t%s' % content.strip())
+            if content_type is dict:
+                Utils.dict_print(content)
+            elif Utils.is_plist(content):
+                Utils.plist_print(content)
+            elif content_type is list:
+                map(print_screen, content)
+            else:
+                print('\t%s' % content.strip())
 
         def print_file(content):
             content_type = type(content)
-            if content_type is dict or content_type is plistlib._InternalDict:
-                try: json.dump(content, fp)
-                except TypeError: pass
+            if content_type is dict:
+                Utils.dict_write_to_file(content, fp)
+            elif Utils.is_plist(content):
+                Utils.plist_write_to_file(content, fp)
             elif content_type is list:
-                for line in content: fp.write('%s\n' % line)
+                map(print_file, content)
             else:
-                fp.write('%s\n' % content)
+                fp.write('%s\n' % content.strip())
 
         if txt:
             # Print to screen
-            if not silent: print_screen(txt)
+            if not silent:
+                print_screen(txt)
             # Saving to file
             if outfile:
                 if type(outfile) is not str:
                     self.printer.error("Please specify a valid path if you want to save to file")
                 else:
-                    self.printer.info("Saving output to file: %s" % outfile)
+                    self.printer.info("Saving output to file: {}".format(outfile))
                     with open(outfile, 'w') as fp:
                         print_file(txt)
 
@@ -192,6 +202,18 @@ class BaseModule(Framework):
              self.editor = self.TOOLS_LOCAL[self.options['program']]
         else:
             raise FrameworkException('The Editing program specified ("{}") is not supported.'.format(self.options['program']))
+
+    def add_issue(self, name, content, confidence, outfile):
+        """Wrapper for ISSUE_MANAGER.issue_add, which automatically fills the 'app' and 'module' fields."""
+        # Check type of content
+        if content is None:
+            content = 'See the content of the linked file'
+        if type(content) is list:
+            content = '\n'.join(x.strip() for x in content)
+        # Add issue
+        self.ISSUE_MANAGER.issue_add(self.APP_METADATA['bundle_id'], self.meta['path'],
+                                     name, content, self.ISSUE_MANAGER.CONFIDENCE_LEVELS[confidence], outfile)
+
 
 # ======================================================================================================================
 # OTHER TYPES OF MODULES
@@ -260,10 +282,38 @@ class FridaModule(BaseModule):
 
 class FridaScript(FridaModule):
     """To be used for modules that just needs to execute a JS payload."""
+
+    def __init__(self, params):
+        FridaModule.__init__(self, params)
+        # Add option for launch mode
+        opt = ('spawn', True, True, 'If set to True, Frida will be used to spawn the app. '
+                                    'If set to False, the app will be launched and Frida will be attached to the running instance')
+        self.register_option(*opt)
+        opt = ('resume', True, True, 'If set to True, Frida will resume the application process after spawning it (recommended)')
+        self.register_option(*opt)
+
     def module_pre(self):
+        def launch_spawn():
+            # Launching the app
+            self.printer.info("Spawning the app...")
+            pid = device.spawn([self.APP_METADATA['bundle_id']])
+            # Attaching to the process
+            self.printer.info("Attaching to process: %s" % pid)
+            self.session = device.attach(pid)
+            if self.options['resume']:
+                self.printer.verbose("Resuming the app's process...")
+                device.resume(pid)
+        def launch_attach():
+            # Launching the app
+            self.printer.info("Launching the app...")
+            self.device.app.open(self.APP_METADATA['bundle_id'])
+            pid = int(self.device.app.search_pid(self.APP_METADATA['name']))
+            # Attaching to the process
+            self.printer.info("Attaching to process: %s" % pid)
+            self.session = device.attach(pid)
+
         # Run FridaModule setup function
         FridaModule.module_pre(self)
-
         # Get an handle to the device
         import frida
         if self.device.is_usb():
@@ -272,22 +322,35 @@ class FridaScript(FridaModule):
         else:
             self.printer.debug("Connected over Wi-Fi")
             device = frida.get_device_manager().enumerate_devices()[1]
-
-        # Launching the app
-        self.printer.info("Launching the app...")
-        self.device.app.open(self.APP_METADATA['bundle_id'])
-        pid = int(self.device.app.search_pid(self.APP_METADATA['name']))
-
-        # Attaching to the process
-        self.printer.info("Attaching to process: %s" % pid)
-        self.session = device.attach(pid)
+        # Spawn/attach to the process
+        if self.options['spawn']:
+            launch_spawn()
+        else:
+           launch_attach()
+        # Prepare results
+        self.results = []
         return 1
 
     def on_message(self, message, data):
         try:
             if message:
-                print("[*] {0}".format(message["payload"]))
-                self.output.append(message["payload"])
+                try:
+                    pld = json.loads(message["payload"])
+                except:
+                    pld = message["payload"]
+                finally:
+                    self.results.append(pld)
         except Exception as e:
             print(message)
             print(e)
+
+    def print_cmd_output(self, silent=False):
+        # Print to console
+        if not silent:
+            if not self.results:
+                self.device.printer.warning('No results found!')
+            for key in self.results:
+                parsed = json.dumps(key, indent=4, sort_keys=True)
+                self.device.printer.notify(parsed)
+        # Print to file
+        BaseModule.print_cmd_output(self, self.results, self.options['output'], silent=True)

@@ -11,7 +11,7 @@ class Module(BaseModule):
                        'Plus, offers the chance to pull and inspect them with BinaryCookieReader or to dump them all for local analysis.',
         'options': (
             ('analyze', True, True, 'Prompt to pick one file to analyze'),
-            ('dump_all', False, True, 'Retrieve all SQL files'),
+            ('dump_all', False, True, 'Retrieve all binary cookie files'),
             ('output', True, False, 'Full path of the output folder'),
         ),
         'comments': [
@@ -58,6 +58,9 @@ class Module(BaseModule):
         if not out:
             self.printer.error("No Binary Cookies files found")
             return
+
+        # Save list
+        self.add_issue('Binary Cookies files detected', out, 'INVESTIGATE', None)
 
         # Add data protection class
         self.printer.info("Retrieving data protection classes...")

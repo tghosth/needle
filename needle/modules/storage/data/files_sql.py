@@ -93,13 +93,16 @@ class Module(BaseModule):
         # Compose cmd string
         dirs = [self.APP_METADATA['bundle_directory'], self.APP_METADATA['data_directory']]
         dirs_str = ' '.join(dirs)
-        cmd = '{bin} {dirs_str} -type f -name "*sql*"'.format(bin=self.device.DEVICE_TOOLS['FIND'], dirs_str=dirs_str)
+        cmd = '{bin} {dirs_str} -type f -name "*.sql" -o -name "*.sqlite" -o -name "*.db" -o -name "*.db3"'.format(bin=self.device.DEVICE_TOOLS['FIND'], dirs_str=dirs_str)
         out = self.device.remote_op.command_blocking(cmd)
 
         # No files found
         if not out:
             self.printer.error("No SQL files found")
             return
+
+        # Save list
+        self.add_issue('SQL files detected', out, 'INVESTIGATE', None)
 
         # Add data protection class
         self.printer.info("Retrieving data protection classes...")

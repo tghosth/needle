@@ -3,6 +3,7 @@ import os
 import sys
 import cmd
 import codecs
+import readline
 import traceback
 
 from options import Options
@@ -33,7 +34,6 @@ class Framework(cmd.Cmd):
     _loaded_modules = {}
     _jobs = []
     _record = None
-    _device_ready = False
     _local_ready = False
     # Mode Flags
     _script = 0
@@ -115,14 +115,6 @@ class Framework(cmd.Cmd):
     # ==================================================================================================================
     # COMPLETE METHODS
     # ==================================================================================================================
-    def complete_keys(self, text, line, *ignored):
-        args = line.split()
-        options = ['list', 'add', 'delete']
-        if 1 < len(args) < 4:
-            if args[1].lower() in options[:1]:
-                return []
-        return [x for x in options if x.startswith(text)]
-
     def complete_load(self, text, *ignored):
         return [x for x in Framework._loaded_modules if x.startswith(text)]
     complete_use = complete_load
@@ -138,6 +130,24 @@ class Framework(cmd.Cmd):
             else: return [x for x in Framework._loaded_modules]
         options = sorted(self._get_show_names())
         return [x for x in options if x.startswith(text)]
+
+    def _history_save(self):
+        history_path = Constants.FILE_HISTORY
+        try:
+            if self._global_options['save_history']:
+                self.printer.debug("Saving command history to: {}".format(history_path))
+                readline.write_history_file(history_path)
+        except Exception as e:
+            self.printer.warning("Error while saving command history: {}".format(e))
+            self.printer.warning("Continuing anyway...")
+
+    def _history_load(self):
+        history_path = Constants.FILE_HISTORY
+        if os.path.exists(history_path):
+            self.printer.debug("Trying to load command history from: {}".format(history_path))
+            readline.read_history_file(history_path)
+        else:
+            self.printer.debug("Command history not found in: {}".format(history_path))
 
     # ==================================================================================================================
     # OUTPUT METHODS
@@ -253,11 +263,12 @@ class Framework(cmd.Cmd):
             print(pattern % ('Name'.ljust(key_len), 'Current Value'.ljust(val_len), 'Required', 'Description'))
             print(pattern % (self.ruler*key_len, (self.ruler*13).ljust(val_len), self.ruler*8, self.ruler*11))
             for key in sorted(options):
-                value = options[key] if options[key] != None else ''
-                reqd = 'no' if options.required[key] is False else 'yes'
-                desc = options.description[key]
-                print(pattern % (key.upper().ljust(key_len), Utils.to_unicode_str(value).ljust(val_len),
-                                 Utils.to_unicode_str(reqd).ljust(8), desc))
+                if not key == Constants.PASSWORD_CLEAR:
+                    value = options[key] if options[key] != None else ''
+                    reqd = 'no' if options.required[key] is False else 'yes'
+                    desc = options.description[key]
+                    print(pattern % (key.upper().ljust(key_len), Utils.to_unicode_str(value).ljust(val_len),
+                                     Utils.to_unicode_str(reqd).ljust(8), desc))
             print('')
         else:
             print('')
@@ -328,12 +339,28 @@ class Framework(cmd.Cmd):
         print(getattr(self, 'do_jobs').__doc__)
         print('')
         print('Usage: jobs')
+        print('...list background jobs currently running.')
         print('')
 
     def help_kill(self):
         print(getattr(self, 'do_kill').__doc__)
         print('')
-        print('Usage: <job number>')
+        print('Usage: kill <job number>')
+        print('...stop the background job specified.')
+        print('')
+
+    def help_issues(self):
+        print(getattr(self, 'do_issues').__doc__)
+        print('')
+        print('Usage: issues')
+        print('...list the issues already identified.')
+        print('')
+
+    def help_add_issue(self):
+        print(getattr(self, 'do_add_issue').__doc__)
+        print('')
+        print('Usage: add_issue')
+        print('...start a wizard that will allow to manually add an issue.')
         print('')
 
     # ==================================================================================================================
@@ -344,80 +371,28 @@ class Framework(cmd.Cmd):
             # if value type is bool or int, then we know the options is set
             if not type(self.options[option]) in [bool, int]:
                 if self.options.required[option] is True and not self.options[option]:
+                    if option == Constants.PASSWORD_CLEAR:
+                        option = 'password'.upper()
                     raise FrameworkException('Value required for the \'%s\' option.' % (option.upper()))
         return
 
     def register_option(self, name, value, required, description):
         self.options.init_option(name=name.lower(), value=value, required=required, description=description)
-        # TODO: support for config file
-        #self._load_config()
-
-    # TODO: support for config file
-    '''
-    def _load_config(self):
-        config_path = os.path.join(self._home, 'config.dat')
-        # don't bother loading if a config file doesn't exist
-        if os.path.exists(config_path):
-            # retrieve saved config data
-            with open(config_path) as config_file:
-                try:
-                    config_data = json.loads(config_file.read())
-                except ValueError:
-                    # file is corrupt, nothing to load, exit gracefully
-                    pass
-                else:
-                    # set option values
-                    for key in self.options:
-                        try:
-                            self.options[key] = config_data[self._modulename][key]
-                        except KeyError:
-                            # invalid key, contnue to load valid keys
-                            continue
-
-    def _save_config(self, name):
-        config_path = os.path.join(self._home, 'config.dat')
-        # create a config file if one doesn't exist
-        open(config_path, 'a').close()
-        # retrieve saved config data
-        with open(config_path) as config_file:
-            try:
-                config_data = json.loads(config_file.read())
-            except ValueError:
-                # file is empty or corrupt, nothing to load
-                config_data = {}
-        # create a container for the current module
-        if self._modulename not in config_data:
-            config_data[self._modulename] = {}
-        # set the new option value in the config
-        config_data[self._modulename][name] = self.options[name]
-        # remove the option if it has been unset
-        if config_data[self._modulename][name] is None:
-            del config_data[self._modulename][name]
-        # remove the module container if it is empty
-        if not config_data[self._modulename]:
-            del config_data[self._modulename]
-        # write the new config data to the config file
-        with open(config_path, 'w') as config_file:
-            json.dump(config_data, config_file, indent=4)
-    '''
 
     # ==================================================================================================================
     # COMMAND METHODS
     # ==================================================================================================================
     def do_exit(self, params):
         """Stop background jobs, cleanup temp folders (local&remote), close connection, then exits the Framework."""
+        # Save history
+        self._history_save()
         # Stop background jobs
         for i in xrange(len(self._jobs)):
             self.do_kill(i)
         # Stop Frida
         if self.device and self.device._frida_server:
-            self.printer.verbose("Stopping port forwarding for Frida")
             self.device._portforward_frida_stop()
             self.local_op.dir_delete(os.path.join(self.path_app, '__handlers__'))
-        # Stop Debug Server
-        if self.device and self.device._debug_server:
-            self.printer.verbose("Stopping port forwarding for LLDB")
-            self.device._portforward_debug_stop()
         # Cleanup temp folders
         try:
             # Cleanup local temp folder
@@ -453,8 +428,15 @@ class Framework(cmd.Cmd):
         name = options[0].lower()
         if name in self.options:
             value = ' '.join(options[1:])
+
+            if name == 'password':
+                self.options[Constants.PASSWORD_CLEAR] = value
+                value = Constants.PASSWORD_MASK
+
+            # Actual set
             self.options[name] = value
             print('%s => %s' % (name.upper(), value))
+
             # Check verbosity level
             if name == 'debug':
                 self.printer.set_debug(self.options['debug'])
@@ -468,8 +450,6 @@ class Framework(cmd.Cmd):
                 self.printer.debug("Output folder changed, reloading modules")
                 self._local_ready = Framework._local_ready = False
                 self.do_reload(None)
-            # TODO: support for config file
-            #self._save_config(name)
         else:
             self.printer.error('Invalid option.')
 
@@ -618,6 +598,14 @@ class Framework(cmd.Cmd):
         except Exception:
             self.print_exception()
 
+    def do_issues(self, params):
+        """List currently gathered issues."""
+        self.ISSUE_MANAGER.issue_print()
+
+    def do_add_issue(self, params):
+        """Prompt the user to manually add an issue."""
+        self.ISSUE_MANAGER.issue_add_manual()
+
     # ==================================================================================================================
     # CONNECTION METHODS
     # ==================================================================================================================
@@ -625,22 +613,22 @@ class Framework(cmd.Cmd):
         """Parse device options from the _global_options and return them."""
         IP = self._global_options['ip']
         PORT = self._global_options['port']
+        AGENT_PORT = self._global_options['agent_port']
         USERNAME = self._global_options['username']
-        PASSWORD = self._global_options['password']
+        PASSWORD = self._global_options[Constants.PASSWORD_CLEAR]
         PUB_KEY_AUTH = self._global_options['pub_key_auth']
-        return IP, PORT, USERNAME, PASSWORD, PUB_KEY_AUTH
+        return IP, PORT, AGENT_PORT, USERNAME, PASSWORD, PUB_KEY_AUTH
 
     def _spawn_device(self):
         """Instantiate a new Device object, and open a connection."""
-        IP, PORT, USERNAME, PASSWORD, PUB_KEY_AUTH = self._parse_device_options()
-        self.device = Framework.device = Device(IP, PORT, USERNAME, PASSWORD, PUB_KEY_AUTH, self.TOOLS_LOCAL)
+        IP, PORT, AGENT_PORT, USERNAME, PASSWORD, PUB_KEY_AUTH = self._parse_device_options()
+        self.device = Framework.device = Device(IP, PORT, AGENT_PORT, USERNAME, PASSWORD, PUB_KEY_AUTH, self.TOOLS_LOCAL)
 
     def _connection_new(self):
         """Try to instantiate a new connection with the device."""
         try:
             self._spawn_device()
             self.device.connect()
-            self.printer.notify("Connected to: %s" % self._global_options['ip'])
         except Exception as e:
             self.printer.error("Problem establishing connection: %s - %s " % (type(e).__name__, e.message))
             self.print_exception()
@@ -660,7 +648,7 @@ class Framework(cmd.Cmd):
             if self._global_options['ip'] != self.device._ip or \
                self._global_options['port'] != self.device._port or \
                self._global_options['username'] != self.device._username or \
-               self._global_options['password'] != self.device._password or \
+               self._global_options[Constants.PASSWORD_CLEAR] != self.device._password or \
                self._global_options['pub_key_auth'] != self.device._pub_key_auth:
 
                 self.printer.verbose('Settings changed in global options. Establishing a new connection')
