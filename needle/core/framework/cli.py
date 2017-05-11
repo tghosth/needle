@@ -3,17 +3,18 @@ import os
 import sys
 import imp
 import re
+import urllib2
 
 from ..utils.printer import Colors, Printer
 from ..utils.constants import Constants
-from framework import Framework, FrameworkException
+from framework import Framework, FrameworkException, Mode
+from issues import IssueManager
 from local_operations import LocalOperations
 
 # Versioning
 __author__ = Constants.AUTHOR
 __email__ = Constants.EMAIL
 __website__ = Constants.WEBSITE
-execfile(os.path.join(sys.path[0], 'VERSION'))                  # set the __version__ variable based on the VERSION file
 
 
 # ======================================================================================================================
@@ -22,9 +23,10 @@ execfile(os.path.join(sys.path[0], 'VERSION'))                  # set the __vers
 class CLI(Framework):
     """Main instance of Framework, and entry point of the program."""
 
-    def __init__(self):
-        Framework.__init__(self, 'cli')
+    def __init__(self, mode):
+        Framework.__init__(self, 'base')
         self._name = Constants.NAME
+        self._mode = mode
         self._prompt_template = '{color_main}{main}{color_module}[{module}]{color_reset} > '
         self._base_prompt = self._prompt_template.format(color_main=Colors.C, main='',
                                                          color_module=Colors.O, module=self._name, color_reset=Colors.N)
@@ -37,10 +39,10 @@ class CLI(Framework):
 
         # Init framework
         self.options = self._global_options
+        self.show_banner()
         self._init_global_options()
         self._init_global_vars()
         self._init_home()
-        self.show_banner()
         self.do_reload(None)
         self._history_load()
 
@@ -50,6 +52,7 @@ class CLI(Framework):
     def _init_global_options(self):
         self.register_option('ip', Constants.GLOBAL_IP, True, 'IP address of the testing device (set to localhost to use USB)')
         self.register_option('port', Constants.GLOBAL_PORT, True, 'Port of the SSH agent on the testing device (needs to be != 22 to use USB)')
+        self.register_option('agent_port', Constants.GLOBAL_AGENT_PORT, True, 'Port on which the Needle Agent is listening')
         self.register_option('username', Constants.GLOBAL_USERNAME, True, 'SSH Username of the testing device')
         self.register_option('password', Constants.PASSWORD_MASK, True, 'SSH Password of the testing device')
         self.register_option(Constants.PASSWORD_CLEAR, Constants.GLOBAL_PASSWORD, True, 'SSH Password of the testing device')
@@ -57,9 +60,10 @@ class CLI(Framework):
         self.register_option('debug', Constants.GLOBAL_DEBUG, True, 'Enable debugging output')
         self.register_option('verbose', Constants.GLOBAL_VERBOSE, True, 'Enable verbose output')
         self.register_option('app', '', False, 'Bundle ID of the target application (e.g., com.example.app). Leave empty to launch wizard')
-        self.register_option('setup_device', Constants.GLOBAL_SETUP_DEVICE, True, 'Set to true to enable auto-configuration of the device (installation of all the tools needed)')
         self.register_option('output_folder', Constants.GLOBAL_OUTPUT_FOLDER, True, 'Full path of the output folder, where to store the output of the modules')
         self.register_option('save_history', Constants.GLOBAL_SAVE_HISTORY, True, 'Persists command history across sessions')
+        self.register_option('skip_output_folder_check', Constants.GLOBAL_SKIP_OUTPUT_FOLDER_CHECK, False, 'Skip the check that ensures the output folder does not already contain other files. '
+                                                                                                           'It will automatically overwrite any file')
 
     def _init_global_vars(self):
         # Setup Printer
@@ -70,6 +74,7 @@ class CLI(Framework):
         self.local_op = Framework.local_op = LocalOperations()
         self.device = Framework.device = None
         self.APP_METADATA = Framework.APP_METADATA = None
+        self.ISSUE_LIST = Framework.ISSUE_MANAGER = IssueManager(self)
 
     def _init_home(self):
         # Folders to initialize
@@ -78,9 +83,7 @@ class CLI(Framework):
         self.path_home_backup = Framework.path_home_backup = Constants.FOLDER_BACKUP
         init_folders = [self.path_home, self.path_home_temp, self.path_home_backup]
         # Initialize folders: home, temp, backup
-        for f in init_folders:
-            if not os.path.exists(f):
-                os.makedirs(f)
+        map(lambda x: os.makedirs(x), filter(lambda x: not os.path.exists(x), init_folders))
 
     def show_banner(self):
         banner='''
@@ -90,11 +93,27 @@ class CLI(Framework):
         '''
         banner_len = len(max(banner.split('\n'), key=len))
         print(banner)
-        print('{msg:^{lgh}}'.format(msg='%s %s v%s [%s]%s' % (Colors.G, self._name, __version__, __website__, Colors.N),
+        print('{msg:^{lgh}}'.format(msg='%s %s v%s [%s]%s' % (Colors.G, self._name, Constants.VERSION, __website__, Colors.N),
                                     lgh=banner_len+8+8))
         print('{msg:^{lgh}}'.format(msg='%s[%s]%s' % (Colors.B, __author__, Colors.N),
                                     lgh=banner_len+8+8))
         print('')
+
+    def version_check(self):
+        try:
+            pattern = "'(\d+\.\d+\.\d+[^']*)'"
+            remote = re.search(pattern, urllib2.urlopen(Constants.VERSION_CHECK).read()).group(1)
+            local = Constants.VERSION
+            if local != remote:
+                self.printer.error('Your version of {} does not match the latest release.'.format(Constants.NAME))
+                self.printer.error('Please update or use the \'--no-check\' switch to continue using the old version.')
+                self.printer.error('Local version: {}'.format(local))
+                self.printer.error('Remote version: {}'.format(remote))
+                return False
+            else:
+                return True
+        except:
+            return True
 
     # ==================================================================================================================
     # LOAD METHODS
@@ -174,6 +193,9 @@ class CLI(Framework):
         while True:
             y = self._loaded_modules[mod_dispname]
             mod_loadpath = os.path.abspath(sys.modules[y.__module__].__file__)
+            # return the loaded module if in command line mode
+            if self._mode == Mode.CLI:
+                return y
             # begin a command loop
             y.prompt = self._prompt_template.format(color_main=Colors.C, main=self.prompt[:-3],
                                                     color_module=Colors.O, module=mod_dispname.split('/')[-1], color_reset=Colors.N)
@@ -188,9 +210,7 @@ class CLI(Framework):
                 # reload the module in memory
                 is_loaded = self._load_module(os.path.dirname(mod_loadpath), os.path.basename(mod_loadpath))
                 if is_loaded:
-                    # reload the module in the framework
                     continue
-                # shuffle category counts?
             break
     do_use = do_load
 

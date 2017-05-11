@@ -1,11 +1,13 @@
 import os
 import re
 import io
+import time
 import json
 import biplist
 import plistlib
 from pprint import pprint
 from datetime import datetime
+
 
 # ======================================================================================================================
 # GENERAL UTILS
@@ -44,6 +46,10 @@ class Utils(object):
             if len(paths) == 2: return paths[0], paths[1]
         # Error
         return None, None
+
+    @staticmethod
+    def path_join(folder, file):
+        return os.path.join(folder, file)
 
     # ==================================================================================================================
     # UNICODE STRINGS UTILS
@@ -116,6 +122,11 @@ class Utils(object):
         except TypeError as e:
             raise Exception(e)
 
+    @staticmethod
+    def string_to_json(text):
+        """Convert a string to a JSON."""
+        return json.loads(text)
+
     # ==================================================================================================================
     # PLIST UTILS
     # ==================================================================================================================
@@ -155,3 +166,38 @@ class Utils(object):
     def plist_write_to_file(text, fp):
         """Write a plist to file."""
         Utils.dict_write_to_file(text, fp)
+
+
+# ======================================================================================================================
+# RETRY DECORATOR
+# ======================================================================================================================
+class Retry(object):
+    default_exceptions = (Exception)
+
+    def __init__(self, tries=3, exceptions=None, delay=0):
+        """Decorator for retrying function if exception occurs."""
+        self.tries = tries
+        if exceptions is None:
+            exceptions = Retry.default_exceptions
+        self.exceptions = exceptions
+        self.delay = delay
+        self.actual_tries = 0
+
+    def __call__(self, func):
+        def wrapper(obj, *args, **kwargs):
+            # Check who is calling: Device or NeedleAgent
+            device = obj._device if 'NeedleAgent' in type(obj).__name__ else obj
+            exception = None
+            while self.actual_tries < self.tries:
+                try:
+                    return func(obj, *args, **kwargs)
+                except self.exceptions, e:
+                    self.actual_tries += 1
+                    device.printer.error("SSH Session appears to have died!")
+                    device.disconnect()
+                    device.printer.warning("Reconnecting to device...")
+                    device.connect()
+                    device.printer.warning("Rerunning last command...")
+                    time.sleep(self.delay)
+            raise Exception("The session with the device died and it was not possible to restore it ({} attempts failed)".format(self.tries))
+        return wrapper

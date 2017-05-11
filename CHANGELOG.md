@@ -6,6 +6,80 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 #### Added
+- **[CORE]** Non-interactive mode: new command line interface (`python needle-cli.py`) which allows to completely script Needle 
+- **[CORE]** Version checking, to ensure the latest version of Needle is being used
+- **[MODULE]** Frida Script: hook all methods of the specified class (`hooking/frida/script_hook-all-methods-of-class`)
+- **[MODULE]** Frida Script: hook a particular method of a specific class (`hooking/frida/script_hook-method-of-class`)
+
+#### Fixed
+- **[CORE]** Search PID for apps with a space in their name
+- **[CORE]** Remove infinite loop from `Retry` decorator, which attempts to restore a connection with the device if it fails
+
+#### Removed
+
+
+
+## [1.1.0] - 2017-05-05
+#### Added
+- **[CORE]** Issue Auto-Detection: modules will now automatically detect and keep track of issues in the target app. 
+All the issues are going to be stored in the `issues.db` SQLite database, contained in the chosen output directory.
+Every issue will hold the following attributes: `app`, `module`, `name`, `content`, `confidence level` ('HIGH', 'MEDIUM', 'INVESTIGATE', 'INFORMATIONAL'), `outfile`
+- **[CORE]** New commands: `issues` (list all the issues identified), `add_issue` (manually add an issue to the collection)
+
+- **[CORE]** Frida Attach or Spawn: added option in Frida modules to either attach to or spawn a process
+- **[CORE]** New global option: `skip_output_folder_check`. It allows to skip the check that ensures the output folder does not already contain other files
+- **[MODULE]** Created the `device` category
+- **[MODULE]** Dependency Installer	(`device/dependency_installer`)
+- **[MODULE]** MDM Effective User Settings (`mdm/effective_user_settings`) _[from @osimonnet]_
+
+#### Fixed
+- **[CORE]** Moved installation of dependencies to its own module (`device/dependency_installer`)
+- **[CORE]** Frida support for 32bit devices
+- **[CORE]** Automatic reconnection if SSH/Agent connection drops (`Retry` decorator)
+- **[CORE]** Re-introduce support for `ipainstaller` (iOS<10)
+- **[MODULE]** Compatibility of modules requiring app decryption (iOS 10)
+
+#### Removed
+- **[CORE]** `SETUP_DEVICE` global option, in favour of `device/dependency_installer`
+
+
+
+## [1.0.2] - 2017-03-21
+#### Fixed
+- **[AGENT]** Improved communication with the Agent
+- **[AGENT]** Replaced `telnetlib` with `asyncore`
+
+
+
+## [1.0.1] - 2017-03-15
+#### Fixed
+- **[AGENT]** Improved communication with the Agent
+
+
+
+## [1.0.0] - 2017-03-10
+#### Added
+- **[AGENT]** Released Needle Agent
+- **[CORE]** iOS 10 Support
+- **[CORE]** Overhaul of the Core
+- **[CORE]** Possibility to disable modules if running incompatible version of iOS
+- **[MODULE]** Simple CLI Client (`various/agent_client`)
+- **[MODULE]** Frida Jailbreak Detection Bypass (`dynamic/detection/script_jailbreak-detection-bypass.py`) _[from @HenryHoggard]_
+- **[MODULE]** Frida Touch Id Bypass (`hooking/frida/script_touch-id-bypass`) _[from @HenryHoggard]_
+- **[SUPPORT]** Updated documentation
+
+#### Fixed
+- **[MODULE]** Fix `storage/data/keychain_dump_frida` ACL Parsing _[from @bernard-wagner]_
+- **[MODULE]** Frida modules spawn app with Frida instead of UIOpen _[from @HenryHoggard]_
+- **[MODULE]** Frida enumerate methods performance enhancement _[from @HenryHoggard]_
+
+#### Removed
+- **[CORE]** Dependencies superseded by the Needle Agent
+
+
+
+## [0.2.0] - 2017-02-16
+#### Added
 - **[CORE]** Preliminary support for iOS10
 - **[CORE]** Support for persisting command history across sessions
 - **[CORE]** Improved metadata parsing for extensions
@@ -22,6 +96,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - **[MODULE]** Provisioning profile: Inspect the provisioning profile of the application (`binary/provisioning_profile`)
 
 #### Fixed
+- **[CORE]** Modified the organization of modules into packages
 - **[CORE]** App metadata: creation of binary path from MobileInstallation.plist
 - **[CORE]** Plist wrapper using biplist
 - **[CORE]** Multiple plist parsing issues _[from @tghosth]_
@@ -32,7 +107,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - **[MODULE]** Clean storage does not need to require a target
 
 #### Removed
-
+- **[CORE]** Unused dependencies
 
 
 
