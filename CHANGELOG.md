@@ -11,6 +11,22 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 
 
+## [1.2.0] - 2017-05-22
+#### Added
+- **[CORE]** Non-interactive mode: new command line interface (`python needle-cli.py`) which allows to completely script Needle 
+- **[CORE]** Version checking, to ensure the latest version of Needle is being used
+- **[CORE]** Add support for binary thinning
+- **[MODULE]** Frida Script: hook all methods of the specified class (`hooking/frida/script_hook-all-methods-of-class`)
+- **[MODULE]** Frida Script: hook a particular method of a specific class (`hooking/frida/script_hook-method-of-class`)
+
+#### Fixed
+- **[CORE]** Search PID for apps with a space in their name
+- **[CORE]** Remove infinite loop from `Retry` decorator, which attempts to restore a connection with the device if it fails
+- **[CORE]** Metadata parsing for app extensions
+- **[CORE]** Re-added support on iOS for: `storage/data/keychain_dump`, `binary/reversing/strings`, `binary/reversing/class_dump`
+
+
+
 ## [1.1.0] - 2017-05-05
 #### Added
 - **[CORE]** Issue Auto-Detection: modules will now automatically detect and keep track of issues in the target app. 
